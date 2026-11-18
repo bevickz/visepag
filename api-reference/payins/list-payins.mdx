@@ -1,0 +1,170 @@
+---
+title: Listar Cobranças
+description: Retorna as cobranças da empresa com filtros e paginação
+api: "GET /payins"
+---
+
+## Descrição
+
+Retorna uma lista paginada das cobranças da empresa, criadas pela API e pelo Dashboard, com filtros por status, método e data. Os depósitos feitos na própria conta não entram na lista.
+
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required default="Bearer YOUR_API_KEY">
+  Bearer token de autenticação. Formato: `Bearer YOUR_API_KEY`
+</ParamField>
+
+---
+
+## Query Parameters
+
+<ParamField query="limit" type="integer" default="10">
+  Quantidade de resultados (mín: 1, máx: 100)
+</ParamField>
+
+<ParamField query="starting_after" type="string">
+  Cursor de paginação: ID da última cobrança da página anterior
+</ParamField>
+
+<ParamField query="method" type="string">
+  Filtrar por método de pagamento: `pix`
+</ParamField>
+
+<ParamField query="status" type="string">
+  Filtrar por status: `creating`, `pending`, `paid`, `expired`, `failed`, `review`
+</ParamField>
+
+<ParamField query="created[gte]" type="string">
+  Data mínima de criação (ISO 8601)
+</ParamField>
+
+<ParamField query="created[lte]" type="string">
+  Data máxima de criação (ISO 8601)
+</ParamField>
+
+---
+
+## Exemplo de Requisição
+
+<CodeGroup>
+```bash cURL
+# Listar as últimas 20 cobranças pagas
+curl "https://api.visepag.com/v1/payins?limit=20&method=pix&status=paid" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```bash Paginação
+# Próxima página após o último ID retornado
+curl "https://api.visepag.com/v1/payins?limit=10&starting_after=54e2b712-aca0-4230-b69a-d6dd8542c925" \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const params = new URLSearchParams({
+  limit: '20',
+  method: 'pix',
+  status: 'paid',
+  'created[gte]': '2026-03-01T00:00:00Z',
+  'created[lte]': '2026-03-31T23:59:59Z'
+});
+
+const response = await fetch(
+  `https://api.visepag.com/v1/payins?${params}`,
+  { headers: { 'Authorization': 'Bearer YOUR_API_KEY' } }
+);
+const { data, has_more } = await response.json();
+```
+</CodeGroup>
+
+---
+
+## Resposta `200 OK`
+
+<ResponseField name="object" type="string">
+  Sempre `"list"`
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Lista de cobranças, no mesmo formato da [consulta](/api-reference/payins/get-payin)
+</ResponseField>
+
+<ResponseField name="has_more" type="boolean">
+  `true` se existem mais resultados
+</ResponseField>
+
+<ResponseField name="url" type="string">
+  URL do endpoint
+</ResponseField>
+
+<ResponseExample>
+```json 200
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "54e2b712-aca0-4230-b69a-d6dd8542c925",
+      "status": "paid",
+      "method": "pix",
+      "amount": 1000,
+      "platformFee": 70,
+      "description": "Pedido #1234",
+      "customerName": "João Silva",
+      "customerDocument": "52998224725",
+      "customerEmail": "joao@email.com",
+      "pixCopy": "00020101021226...",
+      "pixQrCode": null,
+      "createdAt": "2026-03-05T18:14:48Z",
+      "paidAt": "2026-03-05T18:16:22Z",
+      "expiresAt": "2026-03-06T18:14:48Z",
+      "currency": "brl",
+      "livemode": true
+    }
+  ],
+  "has_more": true,
+  "url": "/v1/payins"
+}
+```
+</ResponseExample>
+
+---
+
+## Paginação
+
+A API usa **cursor-based pagination** com o campo `starting_after`:
+
+```javascript
+// Buscar todas as cobranças automaticamente
+async function buscarTodasCobrancas() {
+  const cobrancas = [];
+  let cursor = null;
+
+  do {
+    const params = new URLSearchParams({ limit: '100' });
+    if (cursor) params.set('starting_after', cursor);
+
+    const res = await fetch(`https://api.visepag.com/v1/payins?${params}`, {
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY' }
+    });
+    const { data, has_more } = await res.json();
+
+    cobrancas.push(...data);
+    cursor = has_more ? data[data.length - 1].id : null;
+  } while (cursor);
+
+  return cobrancas;
+}
+```
+
+<Note>
+  Quando `has_more` é `true`, existem mais resultados. Use o `id` da última cobrança retornada como `starting_after` para buscar a próxima página.
+</Note>
+
+---
+
+## Erros
+
+| Status | Código | Descrição |
+|--------|--------|-----------|
+| `400` | `invalid_parameter` | `limit`, `status`, `method`, datas ou `starting_after` inválidos |

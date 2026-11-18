@@ -1,0 +1,30 @@
+---
+title: Formato de IDs
+description: Como funcionam os identificadores únicos na API da VisePag
+---
+
+## Estrutura dos IDs
+
+Todos os objetos na API da VisePag possuem um identificador único no formato UUID, sem prefixo.
+
+| Tipo | Formato | Exemplo |
+|------|---------|---------|
+| Cobrança | UUID | `dc7dc11b-7f98-4d28-86d2-b42912345678` |
+| Saque | UUID | `a1b2c3d4-e5f6-4a7b-8c9d-0e1f23456789` |
+
+## Geração
+
+O ID é gerado pela VisePag na criação da operação e devolvido no campo `id`. É o mesmo ID que chega no campo `data.id` dos webhooks.
+
+## Consulta
+
+A consulta usa o UUID completo, com hífens:
+
+```bash
+GET /v1/payins/dc7dc11b-7f98-4d28-86d2-b42912345678
+GET /v1/payouts/a1b2c3d4-e5f6-4a7b-8c9d-0e1f23456789
+```
+
+## E2E ID
+
+O E2E ID é o identificador oficial do PIX, gerado no Banco Central e usado em conciliação e em contestações (MED). Hoje a VisePag registra o E2E ID dos **saques** concluídos; o das cobranças recebidas ainda não é fornecido pela adquirente.

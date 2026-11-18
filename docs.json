@@ -1,72 +1,88 @@
 {
   "$schema": "https://mintlify.com/docs.json",
+  "name": "VisePag Docs",
   "theme": "mint",
-  "name": "Mintlify Starter Kit",
-  "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
-  },
-  "favicon": "/favicon.svg",
-  "navigation": {
-    "pages": [
-      {
-        "group": "Getting Started",
-        "pages": [
-          "index",
-          "quickstart"
-        ]
-      }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
   "logo": {
     "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    "dark": "/logo/dark.svg",
+    "href": "https://visepag.com"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#114E51",
+    "light": "#CCFF0B",
+    "dark": "#114E51"
   },
   "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:support@mintlify.com"
-      }
-    ],
     "primary": {
       "type": "button",
       "label": "Dashboard",
-      "href": "https://app.mintlify.com"
+      "href": "https://dash.visepag.com/login"
     }
   },
-  "contextual": {
-    "options": [
-      "copy",
-      "view",
-      "chatgpt",
-      "claude",
-      "perplexity",
-      "mcp",
-      "cursor",
-      "vscode"
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentação",
+        "groups": [
+          {
+            "group": "Início",
+            "pages": ["index", "authentication", "quickstart"]
+          },
+          {
+            "group": "Conceitos",
+            "pages": [
+              "concepts/ids",
+              "concepts/status",
+              "concepts/errors",
+              "concepts/rate-limits",
+              "concepts/webhooks"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Visão Geral",
+            "pages": ["api-reference/overview"]
+          },
+          {
+            "group": "Cobranças",
+            "pages": [
+              "api-reference/payins/create-payin",
+              "api-reference/payins/get-payin",
+              "api-reference/payins/list-payins"
+            ]
+          },
+          {
+            "group": "Saques",
+            "pages": ["api-reference/payouts/create-payout", "api-reference/payouts/get-payout"]
+          },
+          {
+            "group": "Saldo",
+            "pages": ["api-reference/balance/get-balance"]
+          },
+          {
+            "group": "Webhooks",
+            "pages": ["api-reference/webhooks/overview", "api-reference/webhooks/events"]
+          }
+        ]
+      }
     ]
   },
   "footer": {
     "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
+      "website": "https://visepag.com"
+    }
+  },
+  "api": {
+    "mdx": {
+      "server": "https://api.visepag.com/v1",
+      "auth": {
+        "method": "bearer"
+      }
     }
   }
 }

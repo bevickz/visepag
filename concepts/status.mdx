@@ -1,0 +1,41 @@
+---
+title: Status
+description: Mapeamento completo de status de cobranças e saques
+---
+
+## Status de Cobranças
+
+| Status | Descrição |
+|--------|-----------|
+| `creating` | Cobrança sendo criada na adquirente |
+| `pending` | Aguardando pagamento |
+| `paid` | Pagamento confirmado |
+| `expired` | Cobrança expirou sem pagamento (vale 24 horas) |
+| `failed` | Erro no processamento |
+| `review` | Em análise: pagamento com divergência, sendo conferido |
+
+## Status de Saques
+
+| Status | Descrição |
+|--------|-----------|
+| `pending` | Saque recebido; valor reservado do saldo |
+| `processing` | Saque em processamento |
+| `completed` | Saque concluído com sucesso |
+| `failed` | Saque falhou; o valor volta para o saldo disponível |
+
+## Fluxo de Status
+
+```
+Cobrança:
+  creating → pending
+  creating → failed
+  pending → paid
+  pending → expired
+  expired → paid   (PIX pago depois de vencer ainda é creditado)
+  pending → review
+
+Saque:
+  pending → processing
+  processing → completed
+  processing → failed
+```

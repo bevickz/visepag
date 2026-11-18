@@ -1,0 +1,131 @@
+---
+title: Webhooks
+description: Receba notificações em tempo real sobre eventos de pagamento
+---
+
+## O que são Webhooks?
+
+Webhooks são notificações HTTP enviadas automaticamente pela VisePag para a URL configurada no seu sistema quando um evento ocorre (ex: pagamento confirmado, saque concluído).
+
+## Eventos Suportados
+
+| Evento | Descrição |
+|--------|-----------|
+| `transaction.paid` | Pagamento PIX confirmado |
+| `withdrawal.completed` | Saque processado com sucesso |
+| `withdrawal.failed` | Saque falhou |
+
+Os endpoints são cadastrados no Dashboard, no menu **Webhooks**. Veja [Webhooks na API Reference](/api-reference/webhooks/overview) para a assinatura.
+
+---
+
+## Exemplos de Payload
+
+<AccordionGroup>
+  <Accordion title="transaction.paid">
+    ```json
+{
+  "id": "5e94842d-5208-46fe-a261-f11f1377f57b",
+  "type": "transaction.paid",
+  "created_at": "2026-03-05T18:16:22Z",
+  "data": {
+    "id": "54e2b712-aca0-4230-b69a-d6dd8542c925",
+    "status": "paid",
+    "method": "pix",
+    "amount": 1000,
+    "platformFee": 70,
+    "description": "Pedido #1234",
+    "customerName": "João Silva",
+    "customerDocument": "52998224725",
+    "customerEmail": "joao@email.com",
+    "pixCopy": "00020101021226...",
+    "pixQrCode": null,
+    "createdAt": "2026-03-05T18:14:48Z",
+    "paidAt": "2026-03-05T18:16:22Z",
+    "expiresAt": "2026-03-06T18:14:48Z",
+    "currency": "brl",
+    "livemode": true
+  }
+}
+    ```
+  </Accordion>
+
+  <Accordion title="withdrawal.completed">
+    ```json
+{
+  "id": "7a1c0b52-9d33-4f0e-8b1a-3c2d4e5f6a7b",
+  "type": "withdrawal.completed",
+  "created_at": "2026-03-05T19:00:02Z",
+  "data": {
+    "id": "aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30",
+    "status": "completed",
+    "amount": 10000,
+    "platformFee": 400,
+    "description": "Saque solicitado",
+    "pixType": "cpf",
+    "pixMasked": "********725",
+    "failureReason": null,
+    "createdAt": "2026-03-05T19:00:00Z",
+    "completedAt": "2026-03-05T19:00:02Z",
+    "failedAt": null,
+    "currency": "brl"
+  }
+}
+    ```
+  </Accordion>
+
+  <Accordion title="withdrawal.failed">
+    ```json
+{
+  "id": "0f9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f",
+  "type": "withdrawal.failed",
+  "created_at": "2026-03-05T19:00:02Z",
+  "data": {
+    "id": "aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30",
+    "status": "failed",
+    "amount": 10000,
+    "platformFee": 400,
+    "description": "Saque solicitado",
+    "pixType": "cpf",
+    "pixMasked": "********725",
+    "failureReason": "provider_failed",
+    "createdAt": "2026-03-05T19:00:00Z",
+    "completedAt": null,
+    "failedAt": "2026-03-05T19:00:02Z",
+    "currency": "brl"
+  }
+}
+    ```
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## Respondendo ao Webhook
+
+Sua URL deve responder com qualquer **HTTP 2xx** em até **10 segundos**:
+
+```javascript
+// Exemplo com Express.js
+app.post('/webhooks/visepag', (req, res) => {
+  const { id, type, data } = req.body;
+
+  // Processar o evento de forma assíncrona
+  processarEvento(id, type, data).catch(console.error);
+
+  // Responder imediatamente
+  res.status(200).end();
+});
+```
+
+<Warning>
+  Processe a lógica de negócio de forma assíncrona. Se sua URL demorar mais de 10 segundos ou não responder 2xx, o webhook será considerado falho e retentativas serão feitas em 30 s, 2 min, 10 min, 30 min, 1 h, 3 h e 6 h.
+</Warning>
+
+---
+
+## Boas Práticas
+
+- **Seja idempotente:** o mesmo evento pode ser entregue mais de uma vez. Use o `id` do evento (header `X-Event-Id`) para evitar processamento duplicado
+- **Responda rápido:** retorne `200` imediatamente e processe em background
+- **Valide o payload:** verifique se o `id` existe no seu sistema antes de processar

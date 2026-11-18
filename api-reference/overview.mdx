@@ -1,0 +1,45 @@
+---
+title: Visão Geral
+description: Referência completa dos endpoints da API da VisePag
+---
+
+## Base URL
+
+```
+https://api.visepag.com/v1
+```
+
+## Autenticação
+
+Todas as requisições requerem o header:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+## Endpoints Disponíveis
+
+<CardGroup cols={2}>
+  <Card title="POST /v1/payins" icon="plus" href="/api-reference/payins/create-payin">
+    Criar uma nova cobrança PIX
+  </Card>
+  <Card title="GET /v1/payins/{id}" icon="magnifying-glass" href="/api-reference/payins/get-payin">
+    Consultar os dados de uma cobrança
+  </Card>
+  <Card title="GET /v1/payins" icon="list" href="/api-reference/payins/list-payins">
+    Listar cobranças com filtros e paginação
+  </Card>
+  <Card title="POST /v1/payouts" icon="money-bill-transfer" href="/api-reference/payouts/create-payout">
+    Solicitar um saque via PIX
+  </Card>
+  <Card title="GET /v1/payouts/{id}" icon="circle-check" href="/api-reference/payouts/get-payout">
+    Consultar os dados de um saque
+  </Card>
+  <Card title="GET /v1/balance" icon="wallet" href="/api-reference/balance/get-balance">
+    Consultar saldo disponível e em processamento
+  </Card>
+</CardGroup>
+
+## Formato das Respostas
+
+Todas as respostas são em `application/json`. Os campos usam camelCase, os valores (`amount`, `platformFee`) são em centavos e as datas usam o formato ISO 8601.

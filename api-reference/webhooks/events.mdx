@@ -1,0 +1,124 @@
+---
+title: Eventos de Webhook
+description: Payload completo de cada evento da VisePag
+---
+
+## transaction.paid
+
+Disparado quando um pagamento PIX é confirmado. O `data` é a cobrança, no mesmo formato de `GET /v1/payins/{id}`.
+
+```json
+{
+  "id": "5e94842d-5208-46fe-a261-f11f1377f57b",
+  "type": "transaction.paid",
+  "created_at": "2026-03-05T18:16:22Z",
+  "data": {
+    "id": "54e2b712-aca0-4230-b69a-d6dd8542c925",
+    "status": "paid",
+    "method": "pix",
+    "amount": 1000,
+    "platformFee": 70,
+    "description": "Pedido #1234",
+    "customerName": "João Silva",
+    "customerDocument": "52998224725",
+    "customerEmail": "joao@email.com",
+    "pixCopy": "00020101021226...",
+    "pixQrCode": null,
+    "createdAt": "2026-03-05T18:14:48Z",
+    "paidAt": "2026-03-05T18:16:22Z",
+    "expiresAt": "2026-03-06T18:14:48Z",
+    "currency": "brl",
+    "livemode": true
+  }
+}
+```
+
+---
+
+## withdrawal.completed
+
+Disparado quando um saque é processado com sucesso. O `data` é o saque, no mesmo formato de `GET /v1/payouts/{id}`.
+
+```json
+{
+  "id": "7a1c0b52-9d33-4f0e-8b1a-3c2d4e5f6a7b",
+  "type": "withdrawal.completed",
+  "created_at": "2026-03-05T19:00:02Z",
+  "data": {
+    "id": "aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30",
+    "status": "completed",
+    "amount": 10000,
+    "platformFee": 400,
+    "description": "Saque solicitado",
+    "pixType": "cpf",
+    "pixMasked": "********725",
+    "failureReason": null,
+    "createdAt": "2026-03-05T19:00:00Z",
+    "completedAt": "2026-03-05T19:00:02Z",
+    "failedAt": null,
+    "currency": "brl"
+  }
+}
+```
+
+---
+
+## withdrawal.failed
+
+Disparado quando um saque falha. O valor volta para o saldo disponível.
+
+```json
+{
+  "id": "0f9e8d7c-6b5a-4c3d-9e2f-1a0b9c8d7e6f",
+  "type": "withdrawal.failed",
+  "created_at": "2026-03-05T19:00:02Z",
+  "data": {
+    "id": "aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30",
+    "status": "failed",
+    "amount": 10000,
+    "platformFee": 400,
+    "description": "Saque solicitado",
+    "pixType": "cpf",
+    "pixMasked": "********725",
+    "failureReason": "provider_failed",
+    "createdAt": "2026-03-05T19:00:00Z",
+    "completedAt": null,
+    "failedAt": "2026-03-05T19:00:02Z",
+    "currency": "brl"
+  }
+}
+```
+
+---
+
+## Handler Completo
+
+Exemplo de como tratar todos os eventos em um único handler:
+
+```javascript
+app.post('/webhooks/visepag', express.json(), (req, res) => {
+  res.status(200).end();
+
+  const { type, data } = req.body;
+
+  switch (type) {
+    case 'transaction.paid':
+      // Liberar produto/serviço
+      liberarPedido(data.id, data.amount);
+      break;
+
+    case 'withdrawal.completed':
+      // Confirmar saque no dashboard interno
+      confirmarSaque(data.id, data.amount);
+      break;
+
+    case 'withdrawal.failed':
+      // Notificar equipe financeira
+      notificarFalhaSaque(data.id, data.failureReason);
+      break;
+
+    default:
+      console.log(`Evento desconhecido: ${type}`);
+  }
+});
+```

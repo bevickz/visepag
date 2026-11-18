@@ -1,0 +1,67 @@
+---
+title: Autenticação
+description: Como autenticar suas requisições na API da VisePag
+---
+
+## Bearer Token
+
+Todas as requisições à API da VisePag devem ser autenticadas com um **Bearer Token** no header `Authorization`.
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+<Note>
+  Todas as chaves secretas usadas para autenticar a API começam obrigatoriamente com o prefixo `sk_live_`. A chave pública `pk_live_` é apenas identificador e não autentica requisições.
+</Note>
+
+## Obtendo sua API Key
+
+Acesse o [Dashboard da VisePag](https://dash.visepag.com/login) e abra o menu **API** para gerar sua chave. A chave secreta aparece uma vez só, na criação.
+
+## Exemplo de Requisição
+
+<CodeGroup>
+```bash cURL
+curl https://api.visepag.com/v1/balance \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const response = await fetch('https://api.visepag.com/v1/balance', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+```
+
+```python Python
+import requests
+
+response = requests.get(
+    'https://api.visepag.com/v1/balance',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'}
+)
+```
+</CodeGroup>
+
+## Erros de Autenticação
+
+| Status | Código | Descrição |
+|--------|--------|-----------|
+| `401` | `missing_authorization` | Header `Authorization` ausente |
+| `401` | `invalid_authorization` | Header inválido; use `Authorization: Bearer YOUR_API_KEY` |
+| `401` | `invalid_api_key` | Chave não encontrada |
+| `403` | `api_key_revoked` | Chave revogada |
+| `403` | `account_not_fully_verified` | Conta sem cadastro completo ou sem KYC aprovado |
+| `429` | `rate_limit_exceeded` | Limite de requisições excedido |
+
+## Segurança
+
+<Warning>
+  Nunca exponha sua API Key em código client-side, repositórios públicos ou logs. Trate-a como uma senha.
+</Warning>
+
+- Armazene a chave em variáveis de ambiente
+- Use HTTPS em todas as requisições (obrigatório)
+- Rotacione a chave periodicamente pelo Dashboard

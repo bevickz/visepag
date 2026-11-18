@@ -1,0 +1,113 @@
+---
+title: Consultar Saldo
+description: Retorna o saldo disponível e em processamento da conta
+api: "GET /balance"
+---
+
+## Descrição
+
+Retorna o saldo disponível para saque e o saldo em processamento (valor reservado de saques em andamento).
+
+---
+
+## Headers
+
+<ParamField header="Authorization" type="string" required default="Bearer YOUR_API_KEY">
+  Bearer token de autenticação. Formato: `Bearer YOUR_API_KEY`
+</ParamField>
+
+---
+
+## Exemplo de Requisição
+
+<CodeGroup>
+```bash cURL
+curl https://api.visepag.com/v1/balance \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+```javascript Node.js
+const response = await fetch('https://api.visepag.com/v1/balance', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY'
+  }
+});
+const balance = await response.json();
+console.log(`Disponível: ${balance.available[0].amount} centavos`);
+```
+
+```python Python
+import requests
+
+balance = requests.get(
+    'https://api.visepag.com/v1/balance',
+    headers={'Authorization': 'Bearer YOUR_API_KEY'}
+).json()
+
+print(f"Disponível: {balance['available'][0]['amount']} centavos")
+```
+</CodeGroup>
+
+---
+
+## Resposta `200 OK`
+
+<ResponseField name="object" type="string">
+  Sempre `"balance"`
+</ResponseField>
+
+<ResponseField name="available" type="array">
+  Saldo disponível por moeda
+
+  <Expandable title="Propriedades">
+    <ResponseField name="available[].amount" type="integer">
+      Saldo disponível em <strong>centavos</strong>
+    </ResponseField>
+
+    <ResponseField name="available[].currency" type="string">
+      Moeda (`brl`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="processing" type="array">
+  Saldo em processamento por moeda
+
+  <Expandable title="Propriedades">
+    <ResponseField name="processing[].amount" type="integer">
+      Valor reservado de saques em andamento, em <strong>centavos</strong>
+    </ResponseField>
+
+    <ResponseField name="processing[].currency" type="string">
+      Moeda (`brl`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="livemode" type="boolean">
+  Sempre `true`
+</ResponseField>
+
+<ResponseExample>
+```json 200
+{
+  "object": "balance",
+  "available": [
+    { "amount": 150000, "currency": "brl" }
+  ],
+  "processing": [
+    { "amount": 25000, "currency": "brl" }
+  ],
+  "livemode": true
+}
+```
+</ResponseExample>
+
+---
+
+## Como o saldo muda
+
+- **Cobrança paga:** o valor menos a taxa da VisePag entra no `available` na hora.
+- **Saque pedido:** o valor sai do `available` e fica em `processing`.
+- **Saque concluído:** o valor sai do `processing`.
+- **Saque falhou:** o valor volta do `processing` para o `available`.

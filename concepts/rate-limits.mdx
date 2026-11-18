@@ -1,0 +1,65 @@
+---
+title: Rate Limits
+description: Limite de requisições por chave na API da VisePag
+---
+
+## Limite por Chave
+
+| Escopo | Limite |
+|--------|--------|
+| Todos os endpoints `/v1`, por chave de API | 60 req/min |
+
+## Headers de Rate Limit
+
+Todas as respostas autenticadas incluem os seguintes headers para monitorar o uso:
+
+| Header | Descrição |
+|--------|-----------|
+| `X-RateLimit-Limit` | Limite total de requisições no período |
+| `X-RateLimit-Remaining` | Requisições restantes no período atual |
+| `X-RateLimit-Reset` | Data e hora (ISO 8601, UTC) de quando o limite será reiniciado |
+
+## Erro de Rate Limit
+
+Ao exceder o limite, a API retorna:
+
+```http
+HTTP/1.1 429 Too Many Requests
+```
+
+```json
+{
+  "error": {
+    "code": "rate_limit_exceeded",
+    "message": "Rate limit exceeded. Max 60 requests/minute."
+  }
+}
+```
+
+## Recomendações
+
+<Tip>
+  Monitore o header `X-RateLimit-Remaining` para adaptar sua frequência de requisições antes de atingir o limite.
+</Tip>
+
+- Implemente **exponential backoff** ao receber erros `429`
+- Para volume alto, considere processar cobranças em batch
+
+```javascript
+// Exemplo: respeitar o rate limit
+async function criarCobrancaComRetry(dados, tentativas = 3) {
+  for (let i = 0; i < tentativas; i++) {
+    const res = await fetch('https://api.visepag.com/v1/payins', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer YOUR_API_KEY', 'Content-Type': 'application/json' },
+      body: JSON.stringify(dados)
+    });
+
+    if (res.status !== 429) return res.json();
+
+    const reset = res.headers.get('X-RateLimit-Reset');
+    const waitMs = reset ? (new Date(reset).getTime() - Date.now()) : (2 ** i * 1000);
+    await new Promise(r => setTimeout(r, waitMs));
+  }
+}
+```

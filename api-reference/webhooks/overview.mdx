@@ -1,0 +1,98 @@
+---
+title: Visão Geral dos Webhooks
+description: Como configurar e receber notificações em tempo real
+---
+
+## O que são Webhooks?
+
+Webhooks permitem que a VisePag notifique seu sistema em tempo real quando um evento ocorre — por exemplo, quando um pagamento PIX é confirmado ou um saque é concluído.
+
+Em vez de fazer polling constantemente, você configura uma URL e recebe a notificação automaticamente.
+
+## Eventos Disponíveis
+
+| Evento | Quando ocorre |
+|--------|---------------|
+| `transaction.paid` | Pagamento PIX confirmado |
+| `withdrawal.completed` | Saque processado com sucesso |
+| `withdrawal.failed` | Saque falhou |
+
+Os endpoints são cadastrados no Dashboard, no menu **Webhooks** (URL `https://`, até 10 endpoints). Na criação você escolhe os eventos (**Transações**, **Saques** ou **Todos**) e recebe o segredo `whsec_...`, que aparece uma vez só.
+
+## Como Responder
+
+Sua URL deve:
+
+1. Retornar qualquer **HTTP 2xx** em até **10 segundos**
+2. Conferir a assinatura (`X-Signature`) antes de processar
+3. Processar a lógica de negócio de forma **assíncrona**
+
+```javascript
+// Exemplo com Express.js
+app.post('/webhooks/visepag', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!assinaturaValida(req.body.toString(), req.headers, process.env.VISEPAG_WEBHOOK_SECRET)) {
+    return res.status(401).end();
+  }
+  const { id, type, data } = JSON.parse(req.body);
+
+  // [OK] Responda imediatamente
+  res.status(200).end();
+
+  // [OK] Processe de forma assíncrona
+  processarEvento(id, type, data).catch(console.error);
+});
+```
+
+## Retentativas
+
+Se sua URL não retornar 2xx ou demorar mais de 10 segundos, a VisePag faz novas tentativas em 30 s, 2 min, 10 min, 30 min, 1 h, 3 h e 6 h. Depois disso, a entrega é dada como falha.
+
+<Warning>
+  Implemente idempotência no seu handler. O mesmo evento pode ser entregue mais de uma vez. Use o `id` do evento (header `X-Event-Id`) para evitar processamento duplicado.
+</Warning>
+
+## Assinatura
+
+Cada envio é um `POST` com o corpo `{"id", "type", "created_at", "data"}` e os headers:
+
+| Header | Descrição |
+|--------|-----------|
+| `X-Event-Id` | O mesmo `id` do corpo; é igual nas retentativas |
+| `X-Timestamp` | Momento do envio, em segundos (Unix) |
+| `X-Signature` | `sha256=` + HMAC-SHA256 em hexadecimal de `<X-Timestamp>.<corpo>`, com o segredo do endpoint (`whsec_...`) |
+
+```javascript
+import crypto from 'node:crypto';
+
+function assinaturaValida(rawBody, headers, segredo) {
+  const esperado = 'sha256=' + crypto
+    .createHmac('sha256', segredo)
+    .update(`${headers['x-timestamp']}.${rawBody}`)
+    .digest('hex');
+  const recebido = headers['x-signature'] ?? '';
+  return esperado.length === recebido.length &&
+    crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(recebido));
+}
+```
+
+## Verificar se é um Evento Novo
+
+```javascript
+const processados = new Set();
+
+async function processarEvento(id, type, data) {
+  // Evitar processamento duplicado
+  if (processados.has(id)) return;
+  processados.add(id);
+
+  if (type === 'transaction.paid') {
+    await liberarPedido(data.id, data.amount);
+  }
+}
+```
+
+## Próximos Passos
+
+<Card title="Referência de Eventos" icon="list" href="/api-reference/webhooks/events">
+  Veja o payload completo de cada evento disponível
+</Card>
