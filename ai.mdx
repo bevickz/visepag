@@ -31,7 +31,8 @@ Estes valores definem o contrato base de qualquer integração:
 | Limite | 60 requisições por minuto por chave |
 
 <Warning>
-  Execute chamadas autenticadas somente no backend. Nunca exponha uma chave <code>sk_live_</code> no navegador, em aplicativos client-side, repositórios públicos ou logs.
+  Nunca exponha sua chave secreta <code>sk_live_</code> no cliente (frontend).
+  Por segurança, todas as chaves secretas devem ser armazenadas exclusivamente no servidor (backend), e todas as chamadas que utilizem essas credenciais devem ser realizadas a partir dele.
 </Warning>
 
 ## Regras para assistentes de IA
