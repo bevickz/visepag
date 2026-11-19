@@ -1,0 +1,88 @@
+---
+title: Saldo
+description: Consultar o saldo disponível e em processamento com as bibliotecas da VisePag
+---
+
+O saldo tem duas partes:
+
+- **`available`:** o que pode ser sacado agora.
+- **`processing`:** o valor reservado de saques em andamento.
+
+Os dois vêm em centavos. Veja [Consultar Saldo](/api-reference/balance/get-balance) para como cada operação muda o saldo.
+
+## Consultar o saldo
+
+<CodeGroup>
+
+```javascript Node.js
+const saldo = await visepag.balance.retrieve();
+
+console.log("Disponível:", saldo.available[0].amount);
+console.log("Em processamento:", saldo.processing[0].amount);
+```
+
+```php PHP
+$saldo = $visepag->balance->retrieve();
+
+echo 'Disponível: ', $saldo->available[0]->amount, PHP_EOL;
+echo 'Em processamento: ', $saldo->processing[0]->amount, PHP_EOL;
+```
+
+```python Python
+saldo = visepag.balance.retrieve()
+
+print("Disponível:", saldo["available"][0]["amount"])
+print("Em processamento:", saldo["processing"][0]["amount"])
+```
+
+```java Java
+Balance saldo = visepag.balance().retrieve();
+
+System.out.println("Disponível: " + saldo.getAvailable().get(0).getAmount());
+System.out.println("Em processamento: " + saldo.getProcessing().get(0).getAmount());
+```
+
+```go Go
+saldo, err := client.Balance.Retrieve(ctx)
+if err != nil {
+    return err
+}
+
+fmt.Println("Disponível:", saldo.Available[0].Amount)
+fmt.Println("Em processamento:", saldo.Processing[0].Amount)
+```
+
+```ruby Ruby
+saldo = visepag.balance.retrieve
+
+puts "Disponível: #{saldo["available"][0]["amount"]}"
+puts "Em processamento: #{saldo["processing"][0]["amount"]}"
+```
+
+```csharp .NET
+var saldo = await visepag.Balance.RetrieveAsync();
+
+Console.WriteLine($"Disponível: {saldo.Available[0].Amount}");
+Console.WriteLine($"Em processamento: {saldo.Processing[0].Amount}");
+```
+
+</CodeGroup>
+
+## Resposta
+
+```json
+{
+  "object": "balance",
+  "available": [
+    { "amount": 150000, "currency": "brl" }
+  ],
+  "processing": [
+    { "amount": 25000, "currency": "brl" }
+  ],
+  "livemode": true
+}
+```
+
+<Note>
+  Para mostrar em reais, divida por 100 só na hora de exibir: `150000` é R$ 1.500,00.
+</Note>

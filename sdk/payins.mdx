@@ -1,0 +1,234 @@
+---
+title: Cobranças
+description: Criar, consultar e listar cobranças PIX com as bibliotecas da VisePag
+---
+
+Os campos e os status são os da API. Veja [Criar Cobrança](/api-reference/payins/create-payin) para a descrição completa de cada um.
+
+## Criar uma cobrança
+
+A cobrança vale 24 horas. O retorno traz o código copia-e-cola (`pixCopy`) e a imagem do QR Code (`pixQrCode`).
+
+<CodeGroup>
+
+```javascript Node.js
+const cobranca = await visepag.payins.create({
+  amount: 1000,
+  description: "Pedido #1234",
+  customerName: "João Silva",
+  customerDocument: "52998224725",
+  customerEmail: "joao@email.com", // opcional
+});
+```
+
+```php PHP
+$cobranca = $visepag->payins->create([
+    'amount' => 1000,
+    'description' => 'Pedido #1234',
+    'customerName' => 'João Silva',
+    'customerDocument' => '52998224725',
+    'customerEmail' => 'joao@email.com', // opcional
+]);
+```
+
+```python Python
+cobranca = visepag.payins.create(
+    amount=1000,
+    description="Pedido #1234",
+    customerName="João Silva",
+    customerDocument="52998224725",
+    customerEmail="joao@email.com",  # opcional
+)
+```
+
+```java Java
+Payin cobranca = visepag.payins().create(PayinCreateParams.builder()
+    .amount(1000L)
+    .description("Pedido #1234")
+    .customerName("João Silva")
+    .customerDocument("52998224725")
+    .customerEmail("joao@email.com") // opcional
+    .build());
+```
+
+```go Go
+cobranca, err := client.Payins.Create(ctx, &visepag.PayinCreateParams{
+    Amount:           1000,
+    Description:      "Pedido #1234",
+    CustomerName:     "João Silva",
+    CustomerDocument: "52998224725",
+    CustomerEmail:    visepag.String("joao@email.com"), // opcional
+})
+```
+
+```ruby Ruby
+cobranca = visepag.payins.create(
+  amount: 1000,
+  description: "Pedido #1234",
+  customerName: "João Silva",
+  customerDocument: "52998224725",
+  customerEmail: "joao@email.com" # opcional
+)
+```
+
+```csharp .NET
+var cobranca = await visepag.Payins.CreateAsync(new PayinCreateOptions
+{
+    Amount = 1000,
+    Description = "Pedido #1234",
+    CustomerName = "João Silva",
+    CustomerDocument = "52998224725",
+    CustomerEmail = "joao@email.com", // opcional
+});
+```
+
+</CodeGroup>
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `amount` | inteiro | Sim | Valor em centavos, de 500 (R$ 5,00) a 10000000 (R$ 100.000,00) |
+| `description` | texto | Sim | Até 140 caracteres |
+| `customerName` | texto | Sim | Nome do pagador, até 200 caracteres |
+| `customerDocument` | texto | Sim | CPF (11 dígitos) ou CNPJ (14 dígitos), só números |
+| `customerEmail` | texto | Não | E-mail do pagador |
+| `method` | texto | Não | Hoje só `pix`. Se não for enviado, vale `pix` |
+
+<Note>
+  Cada chamada cria uma cobrança nova. Se a criação terminar em erro de conexão, confira pela lista antes de criar outra.
+</Note>
+
+## Consultar uma cobrança
+
+<CodeGroup>
+
+```javascript Node.js
+const cobranca = await visepag.payins.retrieve("54e2b712-aca0-4230-b69a-d6dd8542c925");
+console.log(cobranca.status); // pending, paid, expired...
+```
+
+```php PHP
+$cobranca = $visepag->payins->retrieve('54e2b712-aca0-4230-b69a-d6dd8542c925');
+echo $cobranca->status;
+```
+
+```python Python
+cobranca = visepag.payins.retrieve("54e2b712-aca0-4230-b69a-d6dd8542c925")
+print(cobranca["status"])
+```
+
+```java Java
+Payin cobranca = visepag.payins().retrieve("54e2b712-aca0-4230-b69a-d6dd8542c925");
+System.out.println(cobranca.getStatus());
+```
+
+```go Go
+cobranca, err := client.Payins.Retrieve(ctx, "54e2b712-aca0-4230-b69a-d6dd8542c925")
+fmt.Println(cobranca.Status)
+```
+
+```ruby Ruby
+cobranca = visepag.payins.retrieve("54e2b712-aca0-4230-b69a-d6dd8542c925")
+puts cobranca["status"]
+```
+
+```csharp .NET
+var cobranca = await visepag.Payins.RetrieveAsync("54e2b712-aca0-4230-b69a-d6dd8542c925");
+Console.WriteLine(cobranca.Status);
+```
+
+</CodeGroup>
+
+Os status possíveis estão em [Status](/concepts/status).
+
+## Listar cobranças
+
+A lista vem paginada, da mais recente para a mais antiga. Todas as bibliotecas têm um jeito de percorrer todas as páginas automaticamente.
+
+<CodeGroup>
+
+```javascript Node.js
+// Uma página
+const pagina = await visepag.payins.list({ limit: 20, status: "paid" });
+
+// Todas as páginas
+for await (const cobranca of visepag.payins.listAll({ status: "paid" })) {
+  console.log(cobranca.id, cobranca.amount);
+}
+```
+
+```php PHP
+// Uma página
+$pagina = $visepag->payins->list(['limit' => 20, 'status' => 'paid']);
+
+// Todas as páginas
+foreach ($visepag->payins->listAll(['status' => 'paid']) as $cobranca) {
+    echo $cobranca->id, ' ', $cobranca->amount, PHP_EOL;
+}
+```
+
+```python Python
+# Uma página
+pagina = visepag.payins.list(limit=20, status="paid")
+
+# Todas as páginas
+for cobranca in visepag.payins.list_all(status="paid"):
+    print(cobranca["id"], cobranca["amount"])
+```
+
+```java Java
+// Uma página
+PayinList pagina = visepag.payins().list(PayinListParams.builder().limit(20).status("paid").build());
+
+// Todas as páginas
+for (Payin cobranca : visepag.payins().listAll(PayinListParams.builder().status("paid").build())) {
+    System.out.println(cobranca.getId() + " " + cobranca.getAmount());
+}
+```
+
+```go Go
+// Uma página
+pagina, err := client.Payins.List(ctx, &visepag.PayinListParams{Limit: 20, Status: "paid"})
+
+// Todas as páginas
+iter := client.Payins.ListAll(ctx, &visepag.PayinListParams{Status: "paid"})
+for iter.Next() {
+    cobranca := iter.Payin()
+    fmt.Println(cobranca.ID, cobranca.Amount)
+}
+if err := iter.Err(); err != nil {
+    return err
+}
+```
+
+```ruby Ruby
+# Uma página
+pagina = visepag.payins.list(limit: 20, status: "paid")
+
+# Todas as páginas
+visepag.payins.list_all(status: "paid").each do |cobranca|
+  puts "#{cobranca["id"]} #{cobranca["amount"]}"
+end
+```
+
+```csharp .NET
+// Uma página
+var pagina = await visepag.Payins.ListAsync(new PayinListOptions { Limit = 20, Status = "paid" });
+
+// Todas as páginas
+await foreach (var cobranca in visepag.Payins.ListAllAsync(new PayinListOptions { Status = "paid" }))
+{
+    Console.WriteLine($"{cobranca.Id} {cobranca.Amount}");
+}
+```
+
+</CodeGroup>
+
+| Filtro | Descrição |
+|--------|-----------|
+| `limit` | Itens por página, de 1 a 100. Padrão: 10 |
+| `startingAfter` | Id da última cobrança da página anterior |
+| `status` | `creating`, `pending`, `paid`, `expired`, `failed` ou `review` |
+| `method` | `pix` |
+| `created` | Período em ISO 8601, com `gte` (a partir de) e `lte` (até) |
+
+Os depósitos feitos na própria conta não entram na lista.

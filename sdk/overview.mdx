@@ -1,0 +1,272 @@
+---
+title: SDKs
+description: Bibliotecas oficiais da VisePag para integrar a API na sua linguagem
+---
+
+As bibliotecas oficiais chamam a API da VisePag por você. Os campos já vêm tipados, os erros chegam como exceções e a assinatura dos webhooks é conferida em uma linha.
+
+<CardGroup cols={4}>
+  <Card title="Node.js" icon="node-js" href="#instalação">
+    npm
+  </Card>
+  <Card title="PHP" icon="php" href="#instalação">
+    Composer
+  </Card>
+  <Card title="Python" icon="python" href="#instalação">
+    PyPI
+  </Card>
+  <Card title="Java" icon="java" href="#instalação">
+    Maven Central
+  </Card>
+  <Card title="Go" icon="golang" href="#instalação">
+    Go modules
+  </Card>
+  <Card title="Ruby" icon="gem" href="#instalação">
+    RubyGems
+  </Card>
+  <Card title=".NET" icon="microsoft" href="#instalação">
+    NuGet
+  </Card>
+  <Card title="API direta" icon="code" href="/api-reference/overview">
+    Qualquer linguagem, via HTTP
+  </Card>
+</CardGroup>
+
+## Requisitos
+
+| Linguagem | Versão mínima | Pacote |
+|-----------|---------------|--------|
+| Node.js | 22 | `@visepag/node` (npm) |
+| PHP | 8.1 | `visepag/visepag-php` (Composer) |
+| Python | 3.10 | `visepag` (PyPI) |
+| Java | 17 | `com.visepag:visepag-java` (Maven Central) |
+| Go | 1.22 | `github.com/visepag/visepag-go` |
+| Ruby | 3.1 | `visepag` (RubyGems) |
+| .NET | 8 | `VisePag.Net` (NuGet) |
+
+Em todas as linguagens você usa a **chave secreta** (`sk_live_...`), disponível no Dashboard, no menu **API**.
+
+## Instalação
+
+<CodeGroup>
+
+```bash Node.js
+npm install @visepag/node
+```
+
+```bash PHP
+composer require visepag/visepag-php
+```
+
+```bash Python
+pip install visepag
+```
+
+```xml Java (Maven)
+<dependency>
+  <groupId>com.visepag</groupId>
+  <artifactId>visepag-java</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+```bash Go
+go get github.com/visepag/visepag-go
+```
+
+```bash Ruby
+gem install visepag
+```
+
+```bash .NET
+dotnet add package VisePag.Net
+```
+
+</CodeGroup>
+
+## Configuração
+
+Crie o cliente uma vez, com a chave secreta lida de uma variável de ambiente, e reaproveite em toda a aplicação.
+
+<CodeGroup>
+
+```javascript Node.js
+import { VisePag } from "@visepag/node";
+
+const visepag = new VisePag(process.env.VISEPAG_SECRET_KEY);
+```
+
+```php PHP
+<?php
+require 'vendor/autoload.php';
+
+$visepag = new \VisePag\VisePagClient(getenv('VISEPAG_SECRET_KEY'));
+```
+
+```python Python
+import os
+from visepag import VisePag
+
+visepag = VisePag(os.environ["VISEPAG_SECRET_KEY"])
+```
+
+```java Java
+import com.visepag.VisePag;
+
+VisePag visepag = new VisePag(System.getenv("VISEPAG_SECRET_KEY"));
+```
+
+```go Go
+import (
+    "os"
+
+    "github.com/visepag/visepag-go"
+)
+
+client := visepag.New(os.Getenv("VISEPAG_SECRET_KEY"))
+```
+
+```ruby Ruby
+require "visepag"
+
+visepag = VisePag::Client.new(ENV.fetch("VISEPAG_SECRET_KEY"))
+```
+
+```csharp .NET
+using VisePag;
+
+var visepag = new VisePagClient(Environment.GetEnvironmentVariable("VISEPAG_SECRET_KEY"));
+```
+
+</CodeGroup>
+
+<Warning>
+  Use as bibliotecas só no servidor. A chave secreta nunca pode ir para o navegador ou para um app instalado no celular do cliente. As bibliotecas recusam a chave pública (`pk_`).
+</Warning>
+
+## Primeira cobrança
+
+<CodeGroup>
+
+```javascript Node.js
+const cobranca = await visepag.payins.create({
+  amount: 1000, // centavos: R$ 10,00
+  description: "Pedido #1234",
+  customerName: "João Silva",
+  customerDocument: "52998224725",
+});
+
+console.log(cobranca.pixCopy);
+```
+
+```php PHP
+$cobranca = $visepag->payins->create([
+    'amount' => 1000, // centavos: R$ 10,00
+    'description' => 'Pedido #1234',
+    'customerName' => 'João Silva',
+    'customerDocument' => '52998224725',
+]);
+
+echo $cobranca->pixCopy;
+```
+
+```python Python
+cobranca = visepag.payins.create(
+    amount=1000,  # centavos: R$ 10,00
+    description="Pedido #1234",
+    customerName="João Silva",
+    customerDocument="52998224725",
+)
+
+print(cobranca["pixCopy"])
+```
+
+```java Java
+Payin cobranca = visepag.payins().create(PayinCreateParams.builder()
+    .amount(1000L) // centavos: R$ 10,00
+    .description("Pedido #1234")
+    .customerName("João Silva")
+    .customerDocument("52998224725")
+    .build());
+
+System.out.println(cobranca.getPixCopy());
+```
+
+```go Go
+cobranca, err := client.Payins.Create(ctx, &visepag.PayinCreateParams{
+    Amount:           1000, // centavos: R$ 10,00
+    Description:      "Pedido #1234",
+    CustomerName:     "João Silva",
+    CustomerDocument: "52998224725",
+})
+if err != nil {
+    return err
+}
+
+fmt.Println(cobranca.PixCopy)
+```
+
+```ruby Ruby
+cobranca = visepag.payins.create(
+  amount: 1000, # centavos: R$ 10,00
+  description: "Pedido #1234",
+  customerName: "João Silva",
+  customerDocument: "52998224725"
+)
+
+puts cobranca["pixCopy"]
+```
+
+```csharp .NET
+var cobranca = await visepag.Payins.CreateAsync(new PayinCreateOptions
+{
+    Amount = 1000, // centavos: R$ 10,00
+    Description = "Pedido #1234",
+    CustomerName = "João Silva",
+    CustomerDocument = "52998224725",
+});
+
+Console.WriteLine(cobranca.PixCopy);
+```
+
+</CodeGroup>
+
+## Como as bibliotecas funcionam
+
+<AccordionGroup>
+  <Accordion title="Os campos são os mesmos da API" icon="equals">
+    Os nomes, os tipos e os valores são exatamente os da [API](/api-reference/overview). Cada linguagem só segue o próprio estilo de acesso: `cobranca.pixCopy` em Node, `$cobranca->pixCopy` em PHP, `cobranca["pixCopy"]` em Python e Ruby, `getPixCopy()` em Java, `PixCopy` em Go e .NET.
+  </Accordion>
+  <Accordion title="Valores sempre em centavos" icon="coins">
+    `1000` é R$ 10,00. As bibliotecas não convertem valores nem calculam taxas: o que chega é o que a VisePag calculou.
+  </Accordion>
+  <Accordion title="Nenhuma requisição é repetida automaticamente" icon="rotate">
+    Cada criação de cobrança ou de saque é uma operação nova. Se a rede cair ou o tempo limite estourar, a operação pode ter sido feita: confira antes de criar de novo. Veja [Erros](/sdk/errors).
+  </Accordion>
+  <Accordion title="Tempo limite de 30 segundos" icon="clock">
+    Cada requisição espera até 30 segundos. O valor pode ser alterado na criação do cliente, com a opção de tempo limite de cada linguagem.
+  </Accordion>
+</AccordionGroup>
+
+## Próximos passos
+
+<CardGroup cols={3}>
+  <Card title="Cobranças" icon="qrcode" href="/sdk/payins">
+    Criar, consultar e listar
+  </Card>
+  <Card title="Saques" icon="money-bill-transfer" href="/sdk/payouts">
+    Solicitar e consultar
+  </Card>
+  <Card title="Saldo" icon="wallet" href="/sdk/balance">
+    Disponível e em processamento
+  </Card>
+  <Card title="Erros" icon="triangle-exclamation" href="/sdk/errors">
+    Exceções e como tratar
+  </Card>
+  <Card title="Webhooks" icon="bell" href="/sdk/webhooks">
+    Conferir a assinatura dos eventos
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference/overview">
+    Todos os campos e códigos
+  </Card>
+</CardGroup>

@@ -1,0 +1,344 @@
+---
+title: Webhooks
+description: Conferir a assinatura e processar os eventos da VisePag com as bibliotecas
+---
+
+As bibliotecas conferem a assinatura e o horário de cada webhook e devolvem o evento pronto. Você precisa só do segredo do endpoint (`whsec_...`), mostrado uma vez no Dashboard, no menu **Webhooks**, quando o endpoint é criado. A chave da API não é usada.
+
+## O que é conferido
+
+<Steps>
+  <Step title="Assinatura">
+    O cabeçalho `X-Signature` precisa bater com o HMAC-SHA256 do horário e do corpo, calculado com o segredo do endpoint.
+  </Step>
+  <Step title="Horário">
+    O cabeçalho `X-Timestamp` precisa estar a no máximo 5 minutos do relógio do seu servidor.
+  </Step>
+  <Step title="Formato">
+    O corpo precisa ser um evento da VisePag: `transaction.paid`, `withdrawal.completed` ou `withdrawal.failed`.
+  </Step>
+</Steps>
+
+Se qualquer verificação falhar, a biblioteca lança um erro de assinatura. Responda `401` e não processe nada.
+
+## Conferir um webhook
+
+<CodeGroup>
+
+```javascript Node.js
+import { VisePag, WebhookSignatureError } from "@visepag/node";
+
+// rawBody: o corpo como chegou (texto ou Buffer)
+try {
+  const event = VisePag.webhooks.constructEvent(rawBody, headers, process.env.VISEPAG_WEBHOOK_SECRET);
+} catch (error) {
+  if (error instanceof WebhookSignatureError) {
+    // responda 401
+  }
+}
+```
+
+```php PHP
+use VisePag\Webhook;
+use VisePag\Exception\WebhookSignatureException;
+
+$rawBody = file_get_contents('php://input');
+
+try {
+    $event = Webhook::constructEvent($rawBody, getallheaders(), getenv('VISEPAG_WEBHOOK_SECRET'));
+} catch (WebhookSignatureException $e) {
+    http_response_code(401);
+    exit;
+}
+```
+
+```python Python
+from visepag import Webhook, WebhookSignatureError
+
+# raw_body: o corpo como chegou (bytes)
+try:
+    event = Webhook.construct_event(raw_body, headers, os.environ["VISEPAG_WEBHOOK_SECRET"])
+except WebhookSignatureError:
+    pass  # responda 401
+```
+
+```java Java
+import com.visepag.Webhook;
+import com.visepag.exception.WebhookSignatureException;
+
+// rawBody: o corpo como chegou (String)
+try {
+    WebhookEvent event = Webhook.constructEvent(rawBody, headers, System.getenv("VISEPAG_WEBHOOK_SECRET"));
+} catch (WebhookSignatureException e) {
+    // responda 401
+}
+```
+
+```go Go
+body, _ := io.ReadAll(r.Body)
+
+event, err := visepag.ConstructEvent(body, r.Header, os.Getenv("VISEPAG_WEBHOOK_SECRET"))
+if err != nil {
+    w.WriteHeader(http.StatusUnauthorized)
+    return
+}
+```
+
+```ruby Ruby
+raw_body = request.body.read
+
+begin
+  event = VisePag::Webhook.construct_event(raw_body, request.headers, ENV.fetch("VISEPAG_WEBHOOK_SECRET"))
+rescue VisePag::WebhookSignatureError
+  head :unauthorized
+  return
+end
+```
+
+```csharp .NET
+using var reader = new StreamReader(Request.Body);
+var rawBody = await reader.ReadToEndAsync();
+
+try
+{
+    var evento = Webhook.ConstructEvent(rawBody, Request.Headers, Environment.GetEnvironmentVariable("VISEPAG_WEBHOOK_SECRET"));
+}
+catch (WebhookSignatureException)
+{
+    return Unauthorized();
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Passe o corpo **cru**, exatamente como chegou. Se o seu framework já converteu o JSON em objeto, a assinatura não bate e o webhook é recusado. Em Express, use `express.raw` nessa rota, não `express.json`.
+</Warning>
+
+## Processar sem perder nem repetir
+
+A VisePag pode enviar o mesmo evento mais de uma vez, e reenvia quando não recebe `2xx`. Para não perder nem processar em dobro:
+
+<Steps>
+  <Step title="Ignore o que já foi concluído">
+    Procure o `id` do evento (igual ao cabeçalho `X-Event-Id`) na sua tabela de eventos. Se já foi concluído, responda `200` e pare.
+  </Step>
+  <Step title="Grave o evento">
+    Grave o evento numa tabela com chave única no `id`, antes de qualquer outra coisa.
+  </Step>
+  <Step title="Processe">
+    Rode a sua regra de negócio. Ela precisa poder rodar duas vezes para o mesmo evento sem efeito dobrado: "marcar o pedido como pago", não "somar ao saldo".
+  </Step>
+  <Step title="Marque como concluído e responda 200">
+    Se o processamento falhar, responda `500`: a VisePag reenvia e o evento, ainda pendente, é processado de novo.
+  </Step>
+</Steps>
+
+O prazo de resposta é de 10 segundos. Se o seu processamento passar disso, grave o evento, responda `200` e processe a partir da tabela.
+
+## Exemplo completo
+
+<CodeGroup>
+
+```javascript Node.js (Express)
+import express from "express";
+import { VisePag, WebhookSignatureError } from "@visepag/node";
+
+const app = express();
+
+app.post("/webhooks/visepag", express.raw({ type: "application/json" }), async (req, res) => {
+  let event;
+  try {
+    event = VisePag.webhooks.constructEvent(req.body, req.headers, process.env.VISEPAG_WEBHOOK_SECRET);
+  } catch (error) {
+    if (error instanceof WebhookSignatureError) return res.status(401).end();
+    throw error;
+  }
+
+  if (await jaConcluido(event.id)) return res.status(200).end();
+  await gravarEvento(event);
+
+  try {
+    await processar(event);
+  } catch {
+    return res.status(500).end();
+  }
+  await marcarConcluido(event.id);
+  res.status(200).end();
+});
+```
+
+```php PHP
+<?php
+require 'vendor/autoload.php';
+
+use VisePag\Webhook;
+use VisePag\Exception\WebhookSignatureException;
+
+$rawBody = file_get_contents('php://input');
+
+try {
+    $event = Webhook::constructEvent($rawBody, getallheaders(), getenv('VISEPAG_WEBHOOK_SECRET'));
+} catch (WebhookSignatureException $e) {
+    http_response_code(401);
+    exit;
+}
+
+if (jaConcluido($event->id)) {
+    http_response_code(200);
+    exit;
+}
+gravarEvento($event);
+
+try {
+    processar($event);
+} catch (Throwable $e) {
+    http_response_code(500);
+    exit;
+}
+marcarConcluido($event->id);
+http_response_code(200);
+```
+
+```python Python (Flask)
+import os
+from flask import Flask, request
+from visepag import Webhook, WebhookSignatureError
+
+app = Flask(__name__)
+
+@app.post("/webhooks/visepag")
+def webhook():
+    try:
+        event = Webhook.construct_event(request.get_data(), request.headers, os.environ["VISEPAG_WEBHOOK_SECRET"])
+    except WebhookSignatureError:
+        return "", 401
+
+    if ja_concluido(event["id"]):
+        return "", 200
+    gravar_evento(event)
+
+    try:
+        processar(event)
+    except Exception:
+        return "", 500
+    marcar_concluido(event["id"])
+    return "", 200
+```
+
+```java Java (Spring)
+@PostMapping("/webhooks/visepag")
+public ResponseEntity<Void> webhook(@RequestBody String rawBody, @RequestHeader Map<String, String> headers) {
+    WebhookEvent event;
+    try {
+        event = Webhook.constructEvent(rawBody, headers, System.getenv("VISEPAG_WEBHOOK_SECRET"));
+    } catch (WebhookSignatureException e) {
+        return ResponseEntity.status(401).build();
+    }
+
+    if (jaConcluido(event.getId())) return ResponseEntity.ok().build();
+    gravarEvento(event);
+
+    try {
+        processar(event);
+    } catch (Exception e) {
+        return ResponseEntity.status(500).build();
+    }
+    marcarConcluido(event.getId());
+    return ResponseEntity.ok().build();
+}
+```
+
+```go Go
+func webhook(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+
+    event, err := visepag.ConstructEvent(body, r.Header, os.Getenv("VISEPAG_WEBHOOK_SECRET"))
+    if err != nil {
+        w.WriteHeader(http.StatusUnauthorized)
+        return
+    }
+
+    if jaConcluido(event.ID) {
+        w.WriteHeader(http.StatusOK)
+        return
+    }
+    gravarEvento(event)
+
+    if err := processar(event); err != nil {
+        w.WriteHeader(http.StatusInternalServerError)
+        return
+    }
+    marcarConcluido(event.ID)
+    w.WriteHeader(http.StatusOK)
+}
+```
+
+```ruby Ruby (Rails)
+class WebhooksController < ApplicationController
+  skip_before_action :verify_authenticity_token
+
+  def visepag
+    event = VisePag::Webhook.construct_event(request.raw_post, request.headers, ENV.fetch("VISEPAG_WEBHOOK_SECRET"))
+
+    return head :ok if ja_concluido?(event["id"])
+    gravar_evento(event)
+
+    begin
+      processar(event)
+    rescue StandardError
+      return head :internal_server_error
+    end
+    marcar_concluido(event["id"])
+    head :ok
+  rescue VisePag::WebhookSignatureError
+    head :unauthorized
+  end
+end
+```
+
+```csharp .NET (ASP.NET Core)
+app.MapPost("/webhooks/visepag", async (HttpRequest request) =>
+{
+    using var reader = new StreamReader(request.Body);
+    var rawBody = await reader.ReadToEndAsync();
+
+    WebhookEvent evento;
+    try
+    {
+        evento = Webhook.ConstructEvent(rawBody, request.Headers, Environment.GetEnvironmentVariable("VISEPAG_WEBHOOK_SECRET"));
+    }
+    catch (WebhookSignatureException)
+    {
+        return Results.Unauthorized();
+    }
+
+    if (await JaConcluido(evento.Id)) return Results.Ok();
+    await GravarEvento(evento);
+
+    try
+    {
+        await Processar(evento);
+    }
+    catch
+    {
+        return Results.StatusCode(500);
+    }
+    await MarcarConcluido(evento.Id);
+    return Results.Ok();
+});
+```
+
+</CodeGroup>
+
+`jaConcluido`, `gravarEvento`, `processar` e `marcarConcluido` são funções da sua aplicação, sobre o seu banco de dados.
+
+## Tipos de evento
+
+| Evento | Quando | O que vem em `data` |
+|--------|--------|---------------------|
+| `transaction.paid` | Uma cobrança foi paga | A cobrança |
+| `withdrawal.completed` | Um saque foi concluído | O saque |
+| `withdrawal.failed` | Um saque falhou; o valor voltou para o saldo | O saque, com `failureReason` |
+
+O formato completo de cada evento está em [Eventos de Webhook](/api-reference/webhooks/events).

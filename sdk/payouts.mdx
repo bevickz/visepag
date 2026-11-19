@@ -1,0 +1,166 @@
+---
+title: Saques
+description: Solicitar e consultar saques via PIX com as bibliotecas da VisePag
+---
+
+O valor do saque sai do saldo disponível na hora e fica em processamento até a conclusão. O resultado chega pelos webhooks `withdrawal.completed` ou `withdrawal.failed`. Veja [Solicitar Saque](/api-reference/payouts/create-payout) para a descrição completa dos campos.
+
+## Solicitar um saque
+
+<CodeGroup>
+
+```javascript Node.js
+const saque = await visepag.payouts.create({
+  amount: 5000, // centavos: R$ 50,00
+  pixKey: "52998224725",
+  pixType: "cpf",
+  description: "Saque semanal", // opcional
+});
+
+console.log(saque.status); // processing
+```
+
+```php PHP
+$saque = $visepag->payouts->create([
+    'amount' => 5000, // centavos: R$ 50,00
+    'pixKey' => '52998224725',
+    'pixType' => 'cpf',
+    'description' => 'Saque semanal', // opcional
+]);
+
+echo $saque->status;
+```
+
+```python Python
+saque = visepag.payouts.create(
+    amount=5000,  # centavos: R$ 50,00
+    pixKey="52998224725",
+    pixType="cpf",
+    description="Saque semanal",  # opcional
+)
+
+print(saque["status"])
+```
+
+```java Java
+Payout saque = visepag.payouts().create(PayoutCreateParams.builder()
+    .amount(5000L) // centavos: R$ 50,00
+    .pixKey("52998224725")
+    .pixType("cpf")
+    .description("Saque semanal") // opcional
+    .build());
+
+System.out.println(saque.getStatus());
+```
+
+```go Go
+saque, err := client.Payouts.Create(ctx, &visepag.PayoutCreateParams{
+    Amount:      5000, // centavos: R$ 50,00
+    PixKey:      "52998224725",
+    PixType:     "cpf",
+    Description: visepag.String("Saque semanal"), // opcional
+})
+if err != nil {
+    return err
+}
+
+fmt.Println(saque.Status)
+```
+
+```ruby Ruby
+saque = visepag.payouts.create(
+  amount: 5000, # centavos: R$ 50,00
+  pixKey: "52998224725",
+  pixType: "cpf",
+  description: "Saque semanal" # opcional
+)
+
+puts saque["status"]
+```
+
+```csharp .NET
+var saque = await visepag.Payouts.CreateAsync(new PayoutCreateOptions
+{
+    Amount = 5000, // centavos: R$ 50,00
+    PixKey = "52998224725",
+    PixType = "cpf",
+    Description = "Saque semanal", // opcional
+});
+
+Console.WriteLine(saque.Status);
+```
+
+</CodeGroup>
+
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `amount` | inteiro | Sim | Valor que sai do saldo, em centavos. A taxa do saque é descontada desse valor |
+| `pixKey` | texto | Sim | Chave PIX de destino |
+| `pixType` | texto | Sim | `cpf`, `cnpj`, `phone`, `email` ou `random` |
+| `description` | texto | Não | Até 140 caracteres |
+
+<Warning>
+  Cada chamada cria um saque novo, e as bibliotecas nunca repetem o pedido. Se o pedido terminar em erro de conexão, o saque pode ter sido criado: confira pelo webhook ou pelo Dashboard antes de pedir de novo.
+</Warning>
+
+## Consultar um saque
+
+Use quando o webhook não chegar ou para mostrar o andamento ao usuário.
+
+<CodeGroup>
+
+```javascript Node.js
+const saque = await visepag.payouts.retrieve("aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30");
+console.log(saque.status, saque.failureReason);
+```
+
+```php PHP
+$saque = $visepag->payouts->retrieve('aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30');
+echo $saque->status;
+```
+
+```python Python
+saque = visepag.payouts.retrieve("aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30")
+print(saque["status"], saque["failureReason"])
+```
+
+```java Java
+Payout saque = visepag.payouts().retrieve("aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30");
+System.out.println(saque.getStatus());
+```
+
+```go Go
+saque, err := client.Payouts.Retrieve(ctx, "aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30")
+fmt.Println(saque.Status)
+```
+
+```ruby Ruby
+saque = visepag.payouts.retrieve("aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30")
+puts saque["status"]
+```
+
+```csharp .NET
+var saque = await visepag.Payouts.RetrieveAsync("aa53d5f9-a2fb-4c29-b36a-f1a2ef03fd30");
+Console.WriteLine(saque.Status);
+```
+
+</CodeGroup>
+
+| Status | Significado |
+|--------|-------------|
+| `pending` | Recebido, ainda não enviado |
+| `processing` | Enviado, aguardando a confirmação do PIX |
+| `completed` | PIX concluído |
+| `failed` | Falhou; o valor voltou para o saldo disponível. O motivo vem em `failureReason` |
+
+## Erros comuns
+
+| Código | O que fazer |
+|--------|-------------|
+| `insufficient_balance` | O saldo disponível não cobre o valor |
+| `amount_below_minimum` | O valor está abaixo do mínimo de saque da conta |
+| `amount_below_fee` | O valor precisa ser maior que a taxa do saque |
+| `account_not_fully_verified` | A conta ainda não tem a verificação completa (KYC) |
+| `invalid_pix_key` | A chave PIX não é válida para o tipo informado |
+
+Veja como tratar cada um em [Erros](/sdk/errors).

@@ -1,0 +1,176 @@
+---
+title: Erros
+description: As exceções das bibliotecas da VisePag e como tratar cada uma
+---
+
+Quando a API responde com erro, as bibliotecas lançam uma exceção com três informações:
+
+| Informação | O que é |
+|------------|---------|
+| Código | O mesmo da API, por exemplo `insufficient_balance` |
+| Mensagem | A mensagem da API |
+| Status | O status HTTP; `0` quando não houve resposta |
+
+A lista completa de códigos está em [Erros da API](/concepts/errors).
+
+## Tipos de erro
+
+| Tipo | Quando |
+|------|--------|
+| Autenticação | `401`: chave ausente ou inválida |
+| Permissão | `403`: por exemplo `account_not_fully_verified` |
+| Requisição inválida | `400`, `404` e `422`: por exemplo `invalid_amount`, `charge_not_found`, `insufficient_balance` |
+| Conflito | `409`: conflito com o estado atual do recurso |
+| Limite de requisições | `429`: mais de 60 requisições por minuto |
+| API | `5xx`: falha na VisePag ou na adquirente |
+| Conexão | Sem resposta: rede ou tempo limite |
+
+## Nomes em cada linguagem
+
+| Tipo | Node.js · Python · Ruby | PHP · Java · .NET | Go |
+|------|-------------------------|-------------------|----|
+| Base de todos | `VisePagError` | `VisePagException` | `*visepag.Error` |
+| Autenticação | `AuthenticationError` | `AuthenticationException` | `visepag.ErrorTypeAuthentication` |
+| Permissão | `PermissionError` | `PermissionException` | `visepag.ErrorTypePermission` |
+| Requisição inválida | `InvalidRequestError` | `InvalidRequestException` | `visepag.ErrorTypeInvalidRequest` |
+| Conflito | `ConflictError` | `ConflictException` | `visepag.ErrorTypeConflict` |
+| Limite de requisições | `RateLimitError` | `RateLimitException` | `visepag.ErrorTypeRateLimit` |
+| API | `ApiError` | `ApiException` | `visepag.ErrorTypeAPI` |
+| Conexão | `ConnectionError` | `ConnectionException` | `visepag.ErrorTypeConnection` |
+
+Em Python e Ruby, as classes ficam no módulo `visepag` (`visepag.InvalidRequestError`, `VisePag::InvalidRequestError`). Em PHP, no namespace `VisePag\Exception`.
+
+## Exemplo
+
+<CodeGroup>
+
+```javascript Node.js
+import { ConnectionError, InvalidRequestError } from "@visepag/node";
+
+try {
+  await visepag.payouts.create({ amount: 5000, pixKey: "52998224725", pixType: "cpf" });
+} catch (error) {
+  if (error instanceof InvalidRequestError && error.code === "insufficient_balance") {
+    // saldo insuficiente
+  } else if (error instanceof ConnectionError) {
+    // sem resposta: confira antes de pedir de novo
+  } else {
+    throw error;
+  }
+}
+```
+
+```php PHP
+use VisePag\Exception\ConnectionException;
+use VisePag\Exception\InvalidRequestException;
+
+try {
+    $visepag->payouts->create(['amount' => 5000, 'pixKey' => '52998224725', 'pixType' => 'cpf']);
+} catch (InvalidRequestException $e) {
+    if ($e->getErrorCode() === 'insufficient_balance') {
+        // saldo insuficiente
+    } else {
+        throw $e;
+    }
+} catch (ConnectionException $e) {
+    // sem resposta: confira antes de pedir de novo
+}
+```
+
+```python Python
+from visepag import ConnectionError, InvalidRequestError
+
+try:
+    visepag.payouts.create(amount=5000, pixKey="52998224725", pixType="cpf")
+except InvalidRequestError as e:
+    if e.code == "insufficient_balance":
+        pass  # saldo insuficiente
+    else:
+        raise
+except ConnectionError:
+    pass  # sem resposta: confira antes de pedir de novo
+```
+
+```java Java
+import com.visepag.exception.ConnectionException;
+import com.visepag.exception.InvalidRequestException;
+
+try {
+    visepag.payouts().create(PayoutCreateParams.builder()
+        .amount(5000L).pixKey("52998224725").pixType("cpf").build());
+} catch (InvalidRequestException e) {
+    if ("insufficient_balance".equals(e.getCode())) {
+        // saldo insuficiente
+    } else {
+        throw e;
+    }
+} catch (ConnectionException e) {
+    // sem resposta: confira antes de pedir de novo
+}
+```
+
+```go Go
+_, err := client.Payouts.Create(ctx, &visepag.PayoutCreateParams{
+    Amount: 5000, PixKey: "52998224725", PixType: "cpf",
+})
+
+var apiErr *visepag.Error
+if errors.As(err, &apiErr) {
+    switch {
+    case apiErr.Type == visepag.ErrorTypeInvalidRequest && apiErr.Code == "insufficient_balance":
+        // saldo insuficiente
+    case apiErr.Type == visepag.ErrorTypeConnection:
+        // sem resposta: confira antes de pedir de novo
+    default:
+        return err
+    }
+}
+```
+
+```ruby Ruby
+begin
+  visepag.payouts.create(amount: 5000, pixKey: "52998224725", pixType: "cpf")
+rescue VisePag::InvalidRequestError => e
+  raise unless e.code == "insufficient_balance"
+  # saldo insuficiente
+rescue VisePag::ConnectionError
+  # sem resposta: confira antes de pedir de novo
+end
+```
+
+```csharp .NET
+try
+{
+    await visepag.Payouts.CreateAsync(new PayoutCreateOptions
+    {
+        Amount = 5000, PixKey = "52998224725", PixType = "cpf",
+    });
+}
+catch (InvalidRequestException e) when (e.Code == "insufficient_balance")
+{
+    // saldo insuficiente
+}
+catch (ConnectionException)
+{
+    // sem resposta: confira antes de pedir de novo
+}
+```
+
+</CodeGroup>
+
+## Erro de conexão numa criação
+
+<Warning>
+  Um erro de conexão ao criar uma cobrança ou um saque **não quer dizer que a operação falhou**. A VisePag pode ter recebido o pedido e a resposta se perdeu no caminho.
+</Warning>
+
+Antes de criar de novo:
+
+1. **Cobrança:** procure na [lista de cobranças](/sdk/payins#listar-cobranças) pelo valor e pela descrição.
+2. **Saque:** espere o webhook `withdrawal.completed` ou `withdrawal.failed`, ou confira no Dashboard.
+
+As bibliotecas nunca repetem uma requisição por conta própria, justamente para não criar uma segunda cobrança ou um segundo saque.
+
+## Limite de requisições
+
+O limite é de 60 requisições por minuto por chave. Ao receber o erro de limite, espere alguns segundos antes de tentar de novo. Para listas grandes, prefira percorrer as páginas em vez de consultar item por item.

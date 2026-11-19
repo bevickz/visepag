@@ -1,0 +1,364 @@
+---
+title: Integração com IA
+description: Referência da API da VisePag para assistentes de IA e agentes de código
+icon: robot
+---
+
+Use esta página como contexto inicial ao gerar uma integração com a VisePag. Ela reúne os contratos essenciais da API pública, exemplos de cobrança e de saque e as regras para confirmar pagamentos.
+
+<CardGroup cols={2}>
+  <Card title="Documentação completa" icon="book-open" href="/">
+    Consulte os guias e as referências de cada endpoint.
+  </Card>
+  <Card title="Índice para LLMs" icon="file-lines" href="/llms.txt">
+    Acesse o conteúdo da documentação em formato otimizado para modelos de linguagem.
+  </Card>
+</CardGroup>
+
+## Contrato essencial
+
+Estes valores definem o contrato base de qualquer integração:
+
+| Item | Valor |
+|---|---|
+| Base URL | `https://api.visepag.com/v1` |
+| Autenticação | `Authorization: Bearer YOUR_API_KEY` |
+| Chave secreta | Prefixo `sk_live_` |
+| Formato dos campos | camelCase |
+| Unidade de valor | Centavos, por exemplo `1000` = R$ 10,00 |
+| Identificador | `id` em UUID, sem prefixo |
+| Confirmação de pagamento | Webhook `transaction.paid` ou consulta da cobrança |
+| Limite | 60 requisições por minuto por chave |
+
+<Warning>
+  Execute chamadas autenticadas somente no backend. Nunca exponha uma chave <code>sk_live_</code> no navegador, em aplicativos client-side, repositórios públicos ou logs.
+</Warning>
+
+## Regras para assistentes de IA
+
+Siga estas regras ao gerar código para a API:
+
+1. Use somente endpoints e campos documentados pela VisePag
+2. Envie e leia valores em centavos
+3. Use a chave `sk_live_` para autenticação
+4. Não use uma chave `pk_live_` para autenticar requisições
+5. Salve o `id` retornado ao criar uma cobrança ou um saque
+6. Considere o pagamento confirmado somente após `status: "paid"`
+7. Prefira webhooks para confirmação automática e confira a assinatura `X-Signature`
+8. Use `GET /payins/{id}` e `GET /payouts/{id}` para consultas periódicas
+9. Trate erros pelo campo `error.code`
+10. Não crie parâmetros, respostas, eventos ou endpoints ausentes da documentação
+
+Quando houver divergência, use a página específica do endpoint como fonte principal.
+
+## Autenticar requisições
+
+Envie a chave secreta no header `Authorization`:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Este exemplo consulta o saldo autenticado:
+
+```bash
+curl https://api.visepag.com/v1/balance \
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+| Status | Código | Motivo |
+|---|---|---|
+| `401` | `missing_authorization` | Header `Authorization` ausente |
+| `401` | `invalid_authorization` | Formato de autenticação inválido |
+| `401` | `invalid_api_key` | Chave de API não encontrada |
+| `403` | `api_key_revoked` | Chave revogada |
+| `403` | `account_not_fully_verified` | Conta sem cadastro completo ou sem KYC aprovado |
+| `429` | `rate_limit_exceeded` | Limite de requisições excedido |
+
+## Endpoints disponíveis
+
+Use este catálogo para selecionar o endpoint correto:
+
+| Operação | Método e caminho | Resultado |
+|---|---|---|
+| Criar cobrança | `POST /payins` | Cria uma cobrança Pix |
+| Consultar cobrança | `GET /payins/{id}` | Retorna os dados e o status da cobrança |
+| Listar cobranças | `GET /payins` | Retorna as cobranças com filtros e paginação |
+| Solicitar saque | `POST /payouts` | Envia o saldo disponível para uma chave Pix |
+| Consultar saque | `GET /payouts/{id}` | Retorna os dados e o status do saque |
+| Consultar saldo | `GET /balance` | Retorna os saldos disponível e em processamento |
+
+## Criar uma cobrança
+
+Envie `POST https://api.visepag.com/v1/payins` com `Content-Type: application/json`. A cobrança vale 24 horas.
+
+| Campo | Tipo | Obrigatório | Regra |
+|---|---|---|---|
+| `amount` | integer | Sim | Centavos, de `500` (R$ 5,00) a `10000000` (R$ 100.000,00) |
+| `description` | string | Sim | Até 140 caracteres |
+| `customerName` | string | Sim | Até 200 caracteres |
+| `customerDocument` | string | Sim | CPF (11 dígitos) ou CNPJ (14 dígitos) válido, só números |
+| `customerEmail` | string | Não | E-mail do pagador |
+| `method` | string | Não | Hoje só `pix`; se não for enviado, vale `pix` |
+
+Crie uma cobrança Pix:
+
+```bash
+curl --request POST \
+  --url https://api.visepag.com/v1/payins \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "amount": 1000,
+    "description": "Pedido #1234",
+    "customerName": "João Silva",
+    "customerDocument": "52998224725",
+    "customerEmail": "joao@email.com"
+  }'
+```
+
+A API responde com `201 Created`:
+
+```json
+{
+  "id": "54e2b712-aca0-4230-b69a-d6dd8542c925",
+  "status": "pending",
+  "method": "pix",
+  "amount": 1000,
+  "platformFee": 70,
+  "description": "Pedido #1234",
+  "customerName": "João Silva",
+  "customerDocument": "52998224725",
+  "customerEmail": "joao@email.com",
+  "pixCopy": "00020101021226...",
+  "pixQrCode": "data:image/png;base64,iVBORw0KGgo...",
+  "createdAt": "2026-09-12T23:59:59Z",
+  "paidAt": null,
+  "expiresAt": "2026-09-13T23:59:59Z",
+  "currency": "brl",
+  "livemode": true
+}
+```
+
+Mostre ao cliente o `pixCopy` (copia-e-cola). O `pixQrCode` pode vir `null`; o copia-e-cola sempre vale sozinho.
+
+## Consultar uma cobrança
+
+Consulte `GET /payins/{id}` para obter os dados e o status atual:
+
+```bash
+curl --request GET \
+  --url https://api.visepag.com/v1/payins/54e2b712-aca0-4230-b69a-d6dd8542c925 \
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Os status de cobrança são `creating`, `pending`, `paid`, `expired`, `failed` e `review`. Uma cobrança `expired` ainda pode passar a `paid` se o Pix for pago depois de vencer.
+
+## Listar cobranças
+
+Consulte `GET /payins` para obter o histórico paginado:
+
+```bash
+curl --request GET \
+  --url 'https://api.visepag.com/v1/payins?limit=20&status=paid' \
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+| Parâmetro | Tipo | Regra |
+|---|---|---|
+| `limit` | integer | De 1 a 100, padrão 10 |
+| `starting_after` | string | `id` da última cobrança da página anterior |
+| `method` | string | `pix` |
+| `status` | string | Filtra pelo status |
+| `created[gte]` | ISO 8601 | Data inicial |
+| `created[lte]` | ISO 8601 | Data final |
+
+Se `has_more` for `true`, envie o `id` do último item em `starting_after`.
+
+## Solicitar um saque
+
+Envie `POST https://api.visepag.com/v1/payouts`. O `amount` é o valor que sai do saldo, em centavos; a taxa (`platformFee`) é descontada dele.
+
+| Campo | Tipo | Obrigatório | Regra |
+|---|---|---|---|
+| `amount` | integer | Sim | Centavos; respeita o mínimo de saque e precisa ser maior que a taxa |
+| `pixKey` | string | Sim | Chave Pix de destino |
+| `pixType` | string | Sim | `cpf`, `cnpj`, `phone`, `email` ou `random` |
+| `description` | string | Não | Até 140 caracteres |
+
+```bash
+curl --request POST \
+  --url https://api.visepag.com/v1/payouts \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "amount": 5000,
+    "pixKey": "52998224725",
+    "pixType": "cpf",
+    "description": "Saque semanal"
+  }'
+```
+
+Os status de saque são `pending`, `processing`, `completed` e `failed`. O resultado chega pelos webhooks `withdrawal.completed` ou `withdrawal.failed` e pode ser consultado em `GET /payouts/{id}`. A resposta traz a chave mascarada em `pixMasked`; a chave completa não é devolvida.
+
+## Confirmar pagamentos com webhooks
+
+Cadastre o endpoint no Dashboard, no menu **Webhooks**, e guarde o segredo `whsec_...`, que aparece uma vez só. Responda com qualquer HTTP `2xx` em até 10 segundos e processe o evento de forma assíncrona.
+
+| Evento | Uso |
+|---|---|
+| `transaction.paid` | Confirma uma cobrança paga |
+| `withdrawal.completed` | Informa a conclusão de um saque |
+| `withdrawal.failed` | Informa falha em um saque; o valor volta para o saldo disponível |
+
+Cada envio é um `POST` com o corpo `{"id", "type", "created_at", "data"}` e os headers:
+
+| Header | Descrição |
+|---|---|
+| `X-Event-Id` | O mesmo `id` do corpo; é igual nas retentativas |
+| `X-Timestamp` | Momento do envio, em segundos (Unix) |
+| `X-Signature` | `sha256=` + HMAC-SHA256 em hexadecimal de `<X-Timestamp>.<corpo>`, com o segredo do endpoint |
+
+O mesmo evento pode ser entregue mais de uma vez. Use o `X-Event-Id` para impedir processamento duplicado. Sem resposta `2xx`, a VisePag tenta de novo em 30 s, 2 min, 10 min, 30 min, 1 h, 3 h e 6 h.
+
+Este exemplo confere a assinatura e responde antes de processar:
+
+```typescript
+import crypto from 'node:crypto';
+
+app.post('/webhooks/visepag', express.raw({ type: 'application/json' }), (req, res) => {
+  const rawBody = req.body.toString();
+  const esperado = 'sha256=' + crypto
+    .createHmac('sha256', process.env.VISEPAG_WEBHOOK_SECRET)
+    .update(`${req.headers['x-timestamp']}.${rawBody}`)
+    .digest('hex');
+  const recebido = String(req.headers['x-signature'] ?? '');
+
+  if (esperado.length !== recebido.length ||
+      !crypto.timingSafeEqual(Buffer.from(esperado), Buffer.from(recebido))) {
+    return res.status(401).end();
+  }
+
+  const { id, type, data } = JSON.parse(rawBody);
+  res.status(200).end();
+  processarEvento(id, type, data).catch(console.error);
+});
+```
+
+O `data` de `transaction.paid` é a cobrança, no mesmo formato de `GET /payins/{id}`. O `data` dos eventos de saque é o saque, no mesmo formato de `GET /payouts/{id}`.
+
+## Consultar saldo
+
+Consulte `GET /balance` para obter os saldos:
+
+```bash
+curl https://api.visepag.com/v1/balance \
+  --header 'Authorization: Bearer YOUR_API_KEY'
+```
+
+```json
+{
+  "object": "balance",
+  "available": [{ "amount": 150000, "currency": "brl" }],
+  "processing": [{ "amount": 25000, "currency": "brl" }],
+  "livemode": true
+}
+```
+
+`available` é o saldo disponível para saque e `processing` é o valor reservado de saques em andamento, ambos em centavos.
+
+## Tratar erros
+
+Trate o código estável em `error.code`:
+
+```json
+{
+  "error": {
+    "code": "invalid_amount",
+    "message": "amount deve ser um inteiro positivo em centavos"
+  }
+}
+```
+
+Não dependa do texto em `error.message`, que pode mudar. Ao receber `429`, espere até o horário do header `X-RateLimit-Reset` antes de tentar de novo.
+
+## Implementar uma cobrança Pix
+
+Use este fluxo no backend:
+
+<Steps>
+  <Step title="Crie a cobrança">
+    Envie <code>POST /v1/payins</code> com <code>amount</code> em centavos, <code>description</code>, <code>customerName</code> e <code>customerDocument</code>.
+  </Step>
+  <Step title="Salve o ID">
+    Persista o campo <code>id</code> retornado pela VisePag.
+  </Step>
+  <Step title="Exiba o código Pix">
+    Envie <code>pixCopy</code> ao cliente.
+  </Step>
+  <Step title="Receba o webhook">
+    Confira a assinatura, responda com HTTP <code>2xx</code> e processe <code>transaction.paid</code> uma única vez por <code>X-Event-Id</code>.
+  </Step>
+  <Step title="Confirme o pagamento">
+    Libere o produto ou serviço somente após <code>status: "paid"</code>.
+  </Step>
+</Steps>
+
+## Exemplo em TypeScript
+
+Este código cria uma cobrança Pix no backend:
+
+```typescript
+const apiKey = process.env.VISEPAG_API_KEY;
+
+const response = await fetch('https://api.visepag.com/v1/payins', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    amount: 1000,
+    description: 'Pedido #1234',
+    customerName: 'João Silva',
+    customerDocument: '52998224725',
+  }),
+});
+
+const data = await response.json();
+
+if (!response.ok) {
+  throw new Error(data?.error?.code ?? 'visepag_request_failed');
+}
+```
+
+## Checklist da integração
+
+Antes de entregar a implementação, confirme:
+
+- [ ] As chamadas autenticadas rodam no backend
+- [ ] A autenticação usa uma chave `sk_live_`
+- [ ] O header segue o formato `Authorization: Bearer YOUR_API_KEY`
+- [ ] A URL começa com `https://api.visepag.com/v1`
+- [ ] Os campos usam camelCase e o `amount` usa centavos
+- [ ] A cobrança envia `description`, `customerName` e `customerDocument`
+- [ ] O sistema persiste o `id` de cada cobrança e saque
+- [ ] O sistema confirma pagamentos somente com `status: "paid"`
+- [ ] O webhook confere a assinatura `X-Signature`
+- [ ] O webhook responde com HTTP `2xx` em até 10 segundos
+- [ ] O consumidor do webhook impede processamento duplicado pelo `X-Event-Id`
+- [ ] O tratamento de erros usa `error.code`
+- [ ] Nenhuma credencial aparece no frontend ou em logs
+
+## Fontes oficiais
+
+Consulte a referência específica quando precisar de detalhes adicionais:
+
+<CardGroup cols={2}>
+  <Card title="Criar cobrança" icon="plus" href="/api-reference/payins/create-payin" />
+  <Card title="Consultar cobrança" icon="magnifying-glass" href="/api-reference/payins/get-payin" />
+  <Card title="Listar cobranças" icon="list" href="/api-reference/payins/list-payins" />
+  <Card title="Solicitar saque" icon="money-bill-transfer" href="/api-reference/payouts/create-payout" />
+  <Card title="Consultar saldo" icon="wallet" href="/api-reference/balance/get-balance" />
+  <Card title="Eventos de webhook" icon="webhook" href="/api-reference/webhooks/events" />
+</CardGroup>

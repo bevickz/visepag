@@ -27,7 +27,11 @@
         "groups": [
           {
             "group": "Início",
-            "pages": ["index", "authentication", "quickstart"]
+            "pages": [
+              "index",
+              "authentication",
+              "quickstart"
+            ]
           },
           {
             "group": "Conceitos",
@@ -46,7 +50,9 @@
         "groups": [
           {
             "group": "Visão Geral",
-            "pages": ["api-reference/overview"]
+            "pages": [
+              "api-reference/overview"
+            ]
           },
           {
             "group": "Cobranças",
@@ -58,16 +64,58 @@
           },
           {
             "group": "Saques",
-            "pages": ["api-reference/payouts/create-payout", "api-reference/payouts/get-payout"]
+            "pages": [
+              "api-reference/payouts/create-payout",
+              "api-reference/payouts/get-payout"
+            ]
           },
           {
             "group": "Saldo",
-            "pages": ["api-reference/balance/get-balance"]
+            "pages": [
+              "api-reference/balance/get-balance"
+            ]
           },
           {
             "group": "Webhooks",
-            "pages": ["api-reference/webhooks/overview", "api-reference/webhooks/events"]
+            "pages": [
+              "api-reference/webhooks/overview",
+              "api-reference/webhooks/events"
+            ]
           }
+        ]
+      },
+      {
+        "tab": "SDK",
+        "groups": [
+          {
+            "group": "Começando",
+            "pages": [
+              "sdk/overview"
+            ]
+          },
+          {
+            "group": "Recursos",
+            "pages": [
+              "sdk/payins",
+              "sdk/payouts",
+              "sdk/balance"
+            ]
+          },
+          {
+            "group": "Integração",
+            "pages": [
+              "sdk/errors",
+              "sdk/webhooks"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Integração com IA",
+        "href": "ai",
+        "icon": "robot",
+        "pages": [
+          "ai"
         ]
       }
     ]
