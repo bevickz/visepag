@@ -3,8 +3,8 @@
   "name": "VisePag Docs",
   "theme": "mint",
   "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg",
+    "light": "/logo/light.png",
+    "dark": "/logo/dark.png",
     "href": "https://visepag.com"
   },
   "favicon": "/favicon.svg",
